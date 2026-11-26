@@ -61,11 +61,11 @@ def section_cube():
     cube = clean(SRC + 'cube.png'); save(crop_tight(cube, (0, 0, cube.width, cube.height)), 'cube')
 
 def section_poses_v2():
-    # TL jump launch (faces left), TR airborne (faces right), BL grab reach (left), BR grab lift (left); mirrored for the other facing.
+    # TL jump launch (faces left), TR airborne (art reads as travelling right, so it is stored as native R after the facing fix), BL grab reach (left), BR grab lift (left); mirrored for the other facing.
     im = clean(SRC + 'databot_poses_v2.png'); b = parts(im); assert len(b) == 4, b
     top = sorted([x for x in b if (x[1] + x[3]) / 2 < im.height / 2], key=lambda x: x[0]); bot = sorted([x for x in b if x not in top], key=lambda x: x[0])
     frames = unify([crop_tight(im, bx) for bx in top + bot])
-    for (name, native), f in zip([('launch', 'L'), ('air', 'R'), ('reach', 'L'), ('lift', 'L')], frames):
+    for (name, native), f in zip([('launch', 'L'), ('air', 'L'), ('reach', 'L'), ('lift', 'L')], frames):
         m = f.transpose(Image.FLIP_LEFT_RIGHT); other = 'R' if native == 'L' else 'L'
         save(f, 'databot_%s_%s' % (name, native)); save(m, 'databot_%s_%s' % (name, other))
 

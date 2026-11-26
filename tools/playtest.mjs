@@ -19,6 +19,14 @@ let minY = 9999; await b.key('keyDown', ' '); const t0 = Date.now(); let jumps =
 while (Date.now() - t0 < 1400) { const s = JSON.parse(await E(`JSON.stringify({y:${W}.player.y,g:${W}.player.onGround})`)); minY = Math.min(minY, s.y); poses.add(await E(`${W}.player.sprite()`)); if (!s.g && !prevAir) jumps++; prevAir = !s.g; await b.sleep(16); }
 await b.key('keyUp', ' ');
 ok('jump uses launch + airborne poses', [...poses].some(p => /launch/.test(p)) && [...poses].some(p => /air/.test(p)), [...poses].join(','));
+await b.sleep(900);
+for (const [key, side] of [['ArrowLeft', 'L'], ['ArrowRight', 'R']]) {
+  const seen = new Set(); await b.key('keyDown', key); await b.key('keyDown', ' ');
+  const tf = Date.now(); while (Date.now() - tf < 700) { seen.add(await E(`${W}.player.sprite()`)); await b.sleep(16); }
+  await b.key('keyUp', ' '); await b.key('keyUp', key); await b.sleep(900);
+  const names = [...seen].filter(n => /launch|air/.test(n));
+  ok(`facing: jump moving ${side === 'L' ? 'left' : 'right'} uses _${side} launch/air poses`, names.length >= 2 && names.every(n => n.endsWith('_' + side)), names.join(','));
+}
 const land = await E(`[${W}.player.y, ${W}.player.onGround]`);
 ok('T03 jump, fall, land; held key does not re-jump', minY < 552 - 60 && land[1] && land[0] === 552 && jumps === 1, `peak ${(552 - minY).toFixed(0)}px, airborne episodes ${jumps}`);
 
