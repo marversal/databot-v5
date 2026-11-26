@@ -44,3 +44,10 @@ Import the repo in Vercel (framework "Other", no build command, output directory
 - Backdrop `assets/bg/layout.png`; cube lands on the top ring of the front DATA LINK console.
 - Poses: `databot_{launch,air,reach,lift}_{L,R}` (jump + pickup/load); run and carry sprites unchanged.
 - After `CFG.idleTimeout` (120 s) with no input the game resets and returns to the splash; any input restarts.
+
+## Controls, pause, timers
+- Move: L + R cursor keys (or A/D). Jump: SPACE BAR. Grab/load: E. Pause/resume: P. Mute: M. Volume: + / -.
+- Phase 1 length is `CFG.loadTime` (120 s) in `src/config.js`; phase 2 is `CFG.surviveTime` (60 s). The HUD timer reads these values.
+- While paused everything is frozen, and the idle-return timer is held at zero.
+- A CONTROLS line is drawn along the bottom of the playfield (`drawFooter` in `src/hud.js`).
+- The jump poses are built so the helmet and lead leg both face the travel direction. Playtests check pixel mirroring and facing.

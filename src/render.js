@@ -2,14 +2,15 @@ import { CFG } from './config.js';
 import { S } from './state.js';
 import { D } from './drone.js';
 import { drawText, textWidth, loadFont } from './font.js';
-import { COL, drawHeader, drawPrompt } from './hud.js';
+import { COL, drawHeader, drawFooter, drawPrompt } from './hud.js';
 
+const ASSET_V = 3;
 const POSES = ['launch', 'air', 'reach', 'lift'];
 const NAMES = ['databot_run_L', 'databot_run_R', 'databot_carry_L', 'databot_carry_R', ...POSES.flatMap(p => ['databot_' + p + '_L', 'databot_' + p + '_R']),
   'dog_run1', 'dog_run2', 'dog_run3', 'dog_run4', 'drone_fly1', 'drone_fly2', 'drone_shoot', 'drone_tilt', 'cube'];
 export const img = {}; const bgs = {};
 export function loadAssets() {
-  const load = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('missing ' + src)); i.src = src; });
+  const load = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('missing ' + src)); i.src = src + '?v=' + ASSET_V; });
   return Promise.all([loadFont(), ...NAMES.map(n => load('assets/sprites/' + n + '.png').then(i => { img[n] = i; })),
     load('assets/bg/layout.png').then(i => { bgs.layout = i; }), load('assets/bg/splash.png').then(i => { bgs.splash = i; })]);
 }
@@ -148,7 +149,7 @@ export function draw(ctx, w, t) {
     else if (grab) drawPrompt(ctx, '[E] GRAB CUBE', p.x, p.y - PLAYER_H - 14, t);
   }
   w.fx.pops.forEach(q => drawText(ctx, q.text, q.x, q.y, 2, q.color, { align: 'center', shadow: '#000' }));
-  drawHeader(ctx, w, t);
+  drawHeader(ctx, w, t); drawFooter(ctx);
   if (w.notice && !w.state.is(S.GAMEOVER)) {
     const alert = w.notice.text === 'DRONE DETECTED', sc = alert ? 4 : 3, tw = textWidth(w.notice.text, sc) + 40;
     if (!alert || Math.floor(t * 5) % 2 === 0) {
@@ -161,6 +162,12 @@ export function draw(ctx, w, t) {
     ctx.fillStyle = COL.red; ctx.fillRect(22, 228, 980, 3); ctx.fillRect(22, 370, 980, 3);
     drawText(ctx, 'PHASE 2: DRONE THREAT', 512, 262, 5.4, COL.red, { align: 'center', shadow: '#300' });
     drawText(ctx, 'LOADING COMPLETE - HOSTILE DRONE INBOUND', 512, 332, 1.8, COL.g, { align: 'center' });
+  }
+  if (w.paused) {
+    ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(22, 92, 980, 500);
+    ctx.strokeStyle = COL.g; ctx.lineWidth = 4; ctx.strokeRect(262, 232, 500, 170); ctx.fillStyle = '#000'; ctx.fillRect(264, 234, 496, 166);
+    drawText(ctx, 'PAUSED', 512, 262, 9, COL.g, { align: 'center', shadow: COL.dim });
+    if (Math.floor(performance.now() / 500) % 2 === 0 || w.frozenUi) drawText(ctx, 'PRESS P TO RESUME', 512, 352, 2.6, COL.hi, { align: 'center' });
   }
   if (w.state.is(S.GAMEOVER)) drawGameOver(ctx, w, t);
   if (w.fx.flash) { ctx.globalAlpha = (w.fx.flash.life / w.fx.flash.max) * 0.4; ctx.fillStyle = w.fx.flash.color; ctx.fillRect(0, 0, CFG.W, CFG.H); ctx.globalAlpha = 1; }

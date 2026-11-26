@@ -1,6 +1,6 @@
 export const CFG = {
   W: 1024, H: 662, OUT_W: 2048, OUT_H: 1323, FLOOR: 552, dataUnit: 'MB',
-  loadTime: 60, surviveTime: 60, transitionTime: 2.6,
+  loadTime: 120, surviveTime: 60, transitionTime: 2.6,
   energy: 5, carryCapacity: 1,
   stunTime: 1.3, invulnTime: 2.4,
   player: { accel: 2800, decel: 3400, maxSpeed: 330, runThreshold: 0.8, jumpV: 830, gravity: 2600, fallMul: 1.35, minX: 70, maxX: 960 },

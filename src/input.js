@@ -1,5 +1,5 @@
 const down = new Set(), pressed = new Set(), anyDown = new Set(); let activity = false;
-const MAP = { arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', arrowup: 'jump', ' ': 'jump', w: 'jump', e: 'grab', enter: 'confirm', r: 'confirm', m: 'mute', '+': 'volup', '=': 'volup', '-': 'voldown', _: 'voldown' };
+const MAP = { arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', arrowup: 'jump', ' ': 'jump', w: 'jump', e: 'grab', enter: 'confirm', r: 'confirm', m: 'mute', p: 'pause', '+': 'volup', '=': 'volup', '-': 'voldown', _: 'voldown' };
 let bound = false;
 const onDown = (ev) => {
   activity = true; anyDown.add(ev.key);

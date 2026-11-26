@@ -11,7 +11,6 @@ export function drawHeader(ctx, w, t) {
   const p2 = w.inP2 || w.state.is(S.PHASE2);
   ctx.fillStyle = '#000'; ctx.fillRect(22, 56, 980, 27);
   drawText(ctx, p2 ? 'PHASE 2: DRONE THREAT' : 'PHASE 1: DATA LOADING', 34, 30, 2.4, p2 ? COL.red : COL.g);
-  drawText(ctx, 'ARROWS MOVE  SPACE JUMP  E GRAB/LOAD', 992, 33, 1.6, COL.dim, { align: 'right' });
 
   const left = p2 ? w.surviveLeft : w.loadLeft, low = left <= 10 && Math.floor(t * 3) % 2;
   const sc = 2, u = 10, y = 63, cell = 15, cells = CFG.energy;
@@ -35,7 +34,11 @@ export function drawHeader(ctx, w, t) {
   }
 }
 
-export function drawFooter() {}
+export function drawFooter(ctx) {
+  const s = 'CONTROLS: L + R CURSOR KEYS / JUMP: SPACE BAR / GRAB-LOAD: E / PAUSE: P', sc = 1.6, w = textWidth(s, sc) + 24;
+  ctx.fillStyle = 'rgba(0,0,0,0.62)'; ctx.fillRect(Math.round(512 - w / 2), 575, w, 17);
+  drawText(ctx, s, 512, 580, sc, COL.g, { align: 'center' });
+}
 
 export function drawPrompt(ctx, text, x, y, t) {
   const w = textWidth(text, 2) + 18, bx = Math.round(x - w / 2), by = Math.round(y - 14);

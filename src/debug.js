@@ -11,7 +11,8 @@ export function installDebug(world, ctl) {
     scene(name) {
       const w = world; if (w.state.is(S.START) && name !== 'start') w.begin();
       const goPhase = (target) => { while (!w.state.is(target)) { if (w.state.is(S.PHASE1)) w.state.go(S.TRANSITION); else if (w.state.is(S.TRANSITION)) w.state.go(S.PHASE2); else break; } };
-      w.fx.reset(); w.notice = null;
+      w.fx.reset(); w.notice = null; w.paused = false; w.frozenUi = false;
+      if (name === 'paused') { this.scene('carry'); w.paused = true; w.frozenUi = true; return; }
       if (name === 'sheet') { w.sheet = true; return; }
       if (name === 'start') { if (!w.state.is(S.START)) { w.gameOver('x'); w.state.go(S.START); } return; }
       if (name === 'load') { w.stats = { data: 256, cubes: 4 }; w.loadLeft = 42; w.player.x = 330; w.player.carrying = 0; w.conveyor.cubes = [0.99, 0.82, 0.55, 0.3, 0.08].map((t, i) => ({ id: 90 + i, t, state: 'belt' })); w.notice = null; }

@@ -23,7 +23,7 @@ export class World {
   boot() { this.state.go(S.START); }
   resetSession() {
     this.player.reset(); this.conveyor.reset(); this.terminal.reset(); this.fx.reset();
-    this.drones = []; this.dogs = []; this.notice = null; this.gameOverReason = ''; this.inP2 = false;
+    this.drones = []; this.dogs = []; this.notice = null; this.gameOverReason = ''; this.inP2 = false; this.paused = false;
     this.stats = { data: 0, cubes: 0 }; this.loadLeft = CFG.loadTime; this.surviveLeft = CFG.surviveTime;
   }
   begin() {
@@ -62,6 +62,8 @@ export class World {
     this.state.go(S.START); this.idleT = 0;
   }
   update(dt) {
+    if (this.state.is(S.PHASE1, S.TRANSITION, S.PHASE2) && Input.hit('pause')) { this.paused = !this.paused; Input.clear(); }
+    if (this.paused) { this.idleT = 0; return; }
     this.clock += dt;
     if (Input.activity() || Input.anyHeld()) this.idleT = 0; else this.idleT += dt;
     if (this.idleT >= CFG.idleTimeout && !this.state.is(S.START, S.INITIALIZING)) { this.returnToStart(); return; } this.state.tick(dt); this.fx.update(dt);

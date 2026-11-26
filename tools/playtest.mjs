@@ -107,7 +107,7 @@ await b.key('keyDown', 'ArrowLeft'); await b.key('keyUp', 'ArrowLeft'); await b.
 ok('input resets the idle timer (no return)', (await E(`${W}.state.current`)) !== 'START SCREEN' && (await E(`${W}.idleT`)) < 5);
 await E(`${W}.idleT = __DATABOT.CFG.idleTimeout - 1.0`); await b.sleep(1600);
 const ir = JSON.parse(await E(`JSON.stringify({s:${W}.state.current,st:${W}.stats,d:${W}.drones.length,k:${W}.dogs.length,c:${W}.conveyor.cubes.length,e:${W}.player.energy,car:${W}.player.carrying,l:${W}.loadLeft,sv:${W}.surviveLeft,p2:${W}.inP2})`));
-ok('T17 idle 120s returns to splash with clean reset', ir.s === 'START SCREEN' && ir.st.data === 0 && ir.st.cubes === 0 && ir.d === 0 && ir.k === 0 && ir.c === 0 && ir.e === 5 && ir.car === 0 && ir.l === 60 && ir.sv === 60 && !ir.p2, JSON.stringify(ir));
+ok('T17 idle 120s returns to splash with clean reset', ir.s === 'START SCREEN' && ir.st.data === 0 && ir.st.cubes === 0 && ir.d === 0 && ir.k === 0 && ir.c === 0 && ir.e === 5 && ir.car === 0 && ir.l === 120 && ir.sv === 60 && !ir.p2, JSON.stringify(ir));
 await b.shot('/tmp/pt_idle_splash.png');
 await b.key('keyDown', 'q'); await b.key('keyUp', 'q');
 ok('T18 any key from splash starts a new session', await until(`${W}.state.current==='PHASE 1: DATA LOADING'`, 2000));
@@ -116,5 +116,55 @@ ok('idle also fires from an active session again (no double start / stale timers
 await b.click(1024, 660); ok('click on splash starts', await until(`${W}.state.current==='PHASE 1: DATA LOADING'`, 2000));
 const c2 = await E(`${W}.clock`), pp = Date.now(); await b.sleep(2000); const c3 = await E(`${W}.clock`);
 ok('loop rate still ~1x after idle resets', Math.abs((c3 - c2) / ((Date.now() - pp) / 1000) - 1) < 0.15);
+const pxr = await E(`(async () => {
+  const names = ['run', 'carry', 'launch', 'air', 'reach', 'lift'];
+  const load = (n) => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = 'assets/sprites/databot_' + n + '.png?t=' + Date.now(); });
+  const data = (i, flip) => { const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const x = c.getContext('2d'); if (flip) { x.translate(i.width, 0); x.scale(-1, 1); } x.drawImage(i, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
+  const out = {};
+  for (const n of names) {
+    const L = await load(n + '_L'), R = await load(n + '_R'), dl = data(L, false), drm = data(R, true);
+    let diff = 0, tot = 0, wx = 0, wn = 0, hx = 0, hn = 0, y0 = 1e9, y1 = -1;
+    for (let k = 0; k < dl.length; k += 4) if (dl[k + 3] > 200) { const y = Math.floor(k / 4 / L.width); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    for (let k = 0; k < dl.length; k += 4) {
+      const px = (k / 4) % L.width, y = Math.floor(k / 4 / L.width);
+      if (dl[k + 3] > 200) { tot++; if (y < y0 + (y1 - y0) * 0.2) { hx += px; hn++; if (dl[k] > 225 && dl[k + 1] > 225 && dl[k + 2] > 225) { wx += px; wn++; } } }
+      if (Math.abs(dl[k] - drm[k]) + Math.abs(dl[k + 1] - drm[k + 1]) + Math.abs(dl[k + 3] - drm[k + 3]) > 12) diff++;
+    }
+    out[n] = { mirrorDiff: diff / Math.max(1, tot), whiteRightOfCentre: wn > 30 ? (wx / wn) > (hx / hn) : null };
+  }
+  return out;
+})()`);
+for (const [n, v] of Object.entries(pxr)) {
+  if (!/run|carry/.test(n)) ok(`pixels: ${n}_R is the exact mirror of ${n}_L`, v.mirrorDiff < 0.01, `diff ${(v.mirrorDiff * 100).toFixed(2)}%`);
+  if (n !== 'carry') ok(`pixels: ${n}_L helmet back (white) is on the trailing right side, so the visor faces left`, v.whiteRightOfCentre === true, String(v.whiteRightOfCentre));
+}
+await tap('Enter'); await b.sleep(300);
+await hold('ArrowLeft', 300); await b.sleep(900);
+{ const seen = new Set(); await b.key('keyDown', ' '); const t1 = Date.now(); while (Date.now() - t1 < 600) { seen.add(await E(`${W}.player.sprite()`)); await b.sleep(16); } await b.key('keyUp', ' ');
+  const nm = [...seen].filter(n => /launch|air/.test(n)); ok('facing: straight-up jump keeps last facing (left)', nm.length >= 2 && nm.every(n => n.endsWith('_L')), nm.join(',')); }
+await E(`${W}.begin && 0`);
+ok('phase 1 timer is config-driven at 120 s', (await E(`__DATABOT.CFG.loadTime`)) === 120);
+if (await E(`${W}.state.current!=='PHASE 1: DATA LOADING'`)) { await E(`${W}.state.go('START SCREEN')`).catch(() => {}); }
+{
+  await E(`${W}.returnToStart()`); await tap('Enter'); await b.sleep(400);
+  const l0 = await E(`${W}.loadLeft`);
+  ok('new session HUD stack timer starts at ~120 s', l0 > 118.5 && l0 <= 120, String(l0));
+  await hold('ArrowRight', 200);
+  await tap('p'); await b.sleep(120);
+  const snap = async () => JSON.parse(await E(`JSON.stringify({p:${W}.paused,l:${W}.loadLeft,c:${W}.clock,x:${W}.player.x,belt:${W}.conveyor.cubes.map(c=>c.t),idle:${W}.idleT,n:${W}.conveyor.cubes.length})`));
+  const a = await snap(); await b.key('keyDown', 'ArrowLeft'); await b.sleep(1500); await b.key('keyUp', 'ArrowLeft'); const c = await snap();
+  ok('P pauses: timers, player, belt and clock frozen', a.p && c.p && a.l === c.l && a.x === c.x && a.c === c.c && JSON.stringify(a.belt) === JSON.stringify(c.belt), JSON.stringify([a.l, c.l]));
+  await b.shot('/tmp/pt_paused.png');
+  await E(`${W}.idleT = ${W}.idleT + 500`); await b.sleep(300);
+  ok('idle timer does not fire while paused', (await E(`${W}.state.current`)) === 'PHASE 1: DATA LOADING' && (await snap()).idle === 0);
+  await tap('p'); await b.sleep(900); const d = await snap();
+  ok('P resumes cleanly: timer and belt advance again', !d.p && d.l < a.l - 0.5 && d.c > a.c);
+  await hold('ArrowRight', 300);
+  ok('player controls work after resume', (await snap()).x > d.x + 20);
+  await E(`${W}.idleT = __DATABOT.CFG.idleTimeout - 0.5`); await tap('p'); await b.sleep(120); await tap('p'); await b.sleep(900);
+  ok('idle timer restarts from zero after unpausing', (await E(`${W}.state.current`)) === 'PHASE 1: DATA LOADING');
+  await E(`${W}.gameOver('x')`); await tap('p'); ok('P does nothing on game over', !(await E(`${W}.paused`)));
+  await E(`${W}.returnToStart()`); await tap('p'); ok('P does nothing on splash', !(await E(`${W}.paused`)));
+}
 ok('no runtime errors during run', b.errors.length === 0, b.errors.join(' | '));
 console.log(log.join('\n')); b.close();
