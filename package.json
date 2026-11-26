@@ -1,0 +1,12 @@
+{
+  "name": "databot-v5",
+  "version": "5.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DATABOT V5 - neon 16-bit arcade data-loading and drone-survival game (static, no build)",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "playtest": "node tools/playtest.mjs http://localhost:8000/",
+    "finder": "node tools/export_finder.mjs"
+  }
+}
