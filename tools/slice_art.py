@@ -41,17 +41,33 @@ def unify(frames):
 
 def save(im, name): im.save(OUT + name + '.png', optimize=True); print(name, im.size)
 
-poses = clean(SRC + 'databot_poses_sheet.png'); b = parts(poses); assert len(b) == 6, b
-row1 = sorted([x for x in b if (x[1] + x[3]) / 2 < poses.height / 2], key=lambda x: x[0]); row2 = sorted([x for x in b if x not in row1], key=lambda x: x[0])
-names = ['run', 'carry', 'jump']
-frames = unify([crop_tight(poses, bx) for bx in row1 + row2])
-for i, f in enumerate(frames): save(f, 'databot_%s_%s' % (names[i % 3], 'L' if i < 3 else 'R'))
+import os
+def section_run():
+    poses = clean(SRC + 'databot_poses_sheet.png'); b = parts(poses); assert len(b) == 6, b
+    row1 = sorted([x for x in b if (x[1] + x[3]) / 2 < poses.height / 2], key=lambda x: x[0]); row2 = sorted([x for x in b if x not in row1], key=lambda x: x[0])
+    names = ['run', 'carry', 'jump']
+    for i, f in enumerate(unify([crop_tight(poses, bx) for bx in row1 + row2])): save(f, 'databot_%s_%s' % (names[i % 3], 'L' if i < 3 else 'R'))
 
-dog = clean(SRC + 'dog_run_sheet.png'); b = sorted(parts(dog), key=lambda x: x[0]); assert len(b) == 4, b
-for i, f in enumerate(unify([crop_tight(dog, bx) for bx in b])): save(f, 'dog_run%d' % (i + 1))
+def section_dog():
+    dog = clean(SRC + 'dog_run_sheet.png'); b = sorted(parts(dog), key=lambda x: x[0]); assert len(b) == 4, b
+    for i, f in enumerate(unify([crop_tight(dog, bx) for bx in b])): save(f, 'dog_run%d' % (i + 1))
 
-dr = clean(SRC + 'drone_sheet.png'); b = parts(dr); assert len(b) == 4, b
-top = sorted([x for x in b if (x[1] + x[3]) / 2 < dr.height / 2], key=lambda x: x[0]); bot = sorted([x for x in b if x not in top], key=lambda x: x[0])
-for n, f in zip(['fly1', 'fly2', 'shoot', 'tilt'], unify([crop_tight(dr, bx) for bx in top + bot])): save(f, 'drone_' + n)
+def section_drone():
+    dr = clean(SRC + 'drone_sheet.png'); b = parts(dr); assert len(b) == 4, b
+    top = sorted([x for x in b if (x[1] + x[3]) / 2 < dr.height / 2], key=lambda x: x[0]); bot = sorted([x for x in b if x not in top], key=lambda x: x[0])
+    for n, f in zip(['fly1', 'fly2', 'shoot', 'tilt'], unify([crop_tight(dr, bx) for bx in top + bot])): save(f, 'drone_' + n)
 
-cube = clean(SRC + 'cube.png'); save(crop_tight(cube, (0, 0, cube.width, cube.height)), 'cube')
+def section_cube():
+    cube = clean(SRC + 'cube.png'); save(crop_tight(cube, (0, 0, cube.width, cube.height)), 'cube')
+
+def section_poses_v2():
+    # TL jump launch (faces left), TR airborne (faces right), BL grab reach (left), BR grab lift (left); mirrored for the other facing.
+    im = clean(SRC + 'databot_poses_v2.png'); b = parts(im); assert len(b) == 4, b
+    top = sorted([x for x in b if (x[1] + x[3]) / 2 < im.height / 2], key=lambda x: x[0]); bot = sorted([x for x in b if x not in top], key=lambda x: x[0])
+    frames = unify([crop_tight(im, bx) for bx in top + bot])
+    for (name, native), f in zip([('launch', 'L'), ('air', 'R'), ('reach', 'L'), ('lift', 'L')], frames):
+        m = f.transpose(Image.FLIP_LEFT_RIGHT); other = 'R' if native == 'L' else 'L'
+        save(f, 'databot_%s_%s' % (name, native)); save(m, 'databot_%s_%s' % (name, other))
+
+for fname, fn in [('databot_poses_sheet.png', section_run), ('dog_run_sheet.png', section_dog), ('drone_sheet.png', section_drone), ('cube.png', section_cube), ('databot_poses_v2.png', section_poses_v2)]:
+    if os.path.exists(SRC + fname): fn()

@@ -4,7 +4,8 @@ import { D } from './drone.js';
 import { drawText, textWidth, loadFont } from './font.js';
 import { COL, drawHeader, drawPrompt } from './hud.js';
 
-const NAMES = ['databot_run_L', 'databot_run_R', 'databot_carry_L', 'databot_carry_R', 'databot_jump_L', 'databot_jump_R',
+const POSES = ['launch', 'air', 'reach', 'lift'];
+const NAMES = ['databot_run_L', 'databot_run_R', 'databot_carry_L', 'databot_carry_R', ...POSES.flatMap(p => ['databot_' + p + '_L', 'databot_' + p + '_R']),
   'dog_run1', 'dog_run2', 'dog_run3', 'dog_run4', 'drone_fly1', 'drone_fly2', 'drone_shoot', 'drone_tilt', 'cube'];
 export const img = {}; const bgs = {};
 export function loadAssets() {
@@ -12,7 +13,9 @@ export function loadAssets() {
   return Promise.all([loadFont(), ...NAMES.map(n => load('assets/sprites/' + n + '.png').then(i => { img[n] = i; })),
     load('assets/bg/layout.png').then(i => { bgs.layout = i; }), load('assets/bg/splash.png').then(i => { bgs.splash = i; })]);
 }
-export const SIZE = { databotH: 190, dogH: 76, droneW: 150, cubeBelt: 46 };
+export const SIZE = { databotK: 0.378, poseK: 0.33, dogH: 76, droneW: 150, cubeBelt: 46 };
+const databotH = (name) => img[name].height * (/_(launch|air|reach|lift)_/.test(name) ? SIZE.poseK : SIZE.databotK);
+const PLAYER_H = 190;
 
 const tintCv = document.createElement('canvas'), tintCtx = tintCv.getContext('2d');
 // Draws a sprite scaled to a target height (or width), anchored bottom-centre (default) or centre.
@@ -93,7 +96,7 @@ function drawSheet(ctx) {
   const tw = textWidth('DATABOT SPRITE SHEET', 4) + 28; ctx.fillStyle = COL.g; ctx.fillRect(512 - tw / 2, 100, tw, 36);
   drawText(ctx, 'DATABOT SPRITE SHEET', 512, 108, 4, '#000', { align: 'center' });
   const rows = [
-    [['databot_run_L', 'RUN LEFT'], ['databot_carry_L', 'CARRY LEFT'], ['databot_jump_L', 'JUMP LEFT'], ['databot_run_R', 'RUN RIGHT'], ['databot_carry_R', 'CARRY RIGHT'], ['databot_jump_R', 'JUMP RIGHT']],
+    [['databot_run_L', 'RUN'], ['databot_carry_L', 'CARRY'], ['databot_launch_L', 'JUMP LAUNCH'], ['databot_air_R', 'AIRBORNE'], ['databot_reach_L', 'GRAB REACH'], ['databot_lift_L', 'GRAB LIFT']],
     [['drone_fly1', 'DRONE FLY'], ['drone_shoot', 'LASER SHOOT'], ['drone_tilt', 'LASER TILT'], ['dog_run1', 'K9 RUN 1'], ['dog_run3', 'K9 RUN 3'], ['cube', 'DATA CUBE']]];
   rows.forEach((row, r) => row.forEach(([n, label], i) => {
     const cx = 100 + i * 165, top = 148 + r * 215;
@@ -122,15 +125,17 @@ export function draw(ctx, w, t) {
   if (w.terminal.glow > 0) { const k = w.terminal.glow / 0.6; glow(ctx, cx, cy, 80, `rgba(200,255,0,${0.55 * k})`); spr(ctx, 'cube', cx, cy, { w: T.cubeWidth, anchor: 'center', alpha: Math.min(1, k * 1.6) }); }
   w.terminal.flying.forEach(f => { const q = w.terminal.flyPos(f); spr(ctx, 'cube', q.x, q.y, { w: T.cubeWidth * (0.6 + 0.4 * f.t), anchor: 'center' }); });
   if (w.state.playing && w.inTerminalZone() && Math.floor(t * 3) % 2) {
-    ctx.fillStyle = COL.hi; ctx.beginPath(); ctx.moveTo(cx - 12, 395); ctx.lineTo(cx + 12, 395); ctx.lineTo(cx, 413); ctx.fill();
+    ctx.fillStyle = COL.hi; ctx.beginPath(); ctx.moveTo(cx - 12, 366); ctx.lineTo(cx + 12, 366); ctx.lineTo(cx, 384); ctx.fill();
   }
   w.dogs.forEach(d => { shadow(ctx, d.x, 90); spr(ctx, d.sprite(), d.x, d.y, { h: SIZE.dogH, flip: d.dir > 0 }); });
   shadow(ctx, p.x, 80 - Math.min(30, (CFG.FLOOR - p.y) / 5));
   const blink = p.invT > 0 && !p.stunned && Math.floor(t * 14) % 2;
   if (!blink) {
     const tint = p.hitFlash > 0 ? '#ffffff' : (p.stunned && Math.floor(t * 10) % 2 ? 'rgba(255,42,74,0.45)' : null);
-    spr(ctx, p.sprite(), p.x + (p.stunned ? Math.sin(t * 70) * 3 : 0), p.y - p.bob(), { h: SIZE.databotH, tint, rot: p.onGround && Math.abs(p.vx) > 30 ? Math.sin(p.anim * 11) * 0.03 : 0 });
+    const sn = p.sprite();
+    spr(ctx, sn, p.x + (p.stunned ? Math.sin(t * 70) * 3 : 0), p.y - p.bob(), { h: databotH(sn), tint, rot: p.onGround && Math.abs(p.vx) > 30 ? Math.sin(p.anim * 11) * 0.03 : 0 });
   }
+  if (p.lifting && !blink) spr(ctx, 'cube', p.x + p.facing * 62, p.y - 150 - Math.sin(Math.min(1, (p.act.t - 0.16) / 0.26) * Math.PI) * 6, { w: 40, anchor: 'center' });
   w.drones.forEach(d => {
     drawLaser(ctx, d, t); shadow(ctx, d.x, 50);
     spr(ctx, droneSprite(d, t), d.x, d.y, { w: SIZE.droneW, flip: d.facing > 0, anchor: 'center', rot: d.state === D.TARGET || d.state === D.CHARGE ? 0.04 * d.facing : 0 });
@@ -138,9 +143,9 @@ export function draw(ctx, w, t) {
   });
   w.fx.parts.forEach(q => { ctx.globalAlpha = Math.max(0, q.life / q.max); ctx.fillStyle = q.color; ctx.fillRect(q.x - 2, q.y - 2, 4, 4); }); ctx.globalAlpha = 1;
   if (w.state.playing) {
-    if (p.stunned) drawText(ctx, 'STUNNED', p.x, p.y - SIZE.databotH - 26, 3, COL.red, { align: 'center', shadow: '#000' });
-    else if (w.inTerminalZone()) drawPrompt(ctx, '[E] LOAD BELT', p.x, p.y - SIZE.databotH - 14, t);
-    else if (grab) drawPrompt(ctx, '[E] GRAB CUBE', p.x, p.y - SIZE.databotH - 14, t);
+    if (p.stunned) drawText(ctx, 'STUNNED', p.x, p.y - PLAYER_H - 26, 3, COL.red, { align: 'center', shadow: '#000' });
+    else if (w.inTerminalZone()) drawPrompt(ctx, '[E] LOAD BELT', p.x, p.y - PLAYER_H - 14, t);
+    else if (grab) drawPrompt(ctx, '[E] GRAB CUBE', p.x, p.y - PLAYER_H - 14, t);
   }
   w.fx.pops.forEach(q => drawText(ctx, q.text, q.x, q.y, 2, q.color, { align: 'center', shadow: '#000' }));
   drawHeader(ctx, w, t);

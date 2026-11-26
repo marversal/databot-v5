@@ -39,3 +39,8 @@ Import the repo in Vercel (framework "Other", no build command, output directory
 ## Notes
 - Data unit is `CFG.dataUnit` (`MB` per the spec; the supplied layout art shows `TB`).
 - Cube drop point on the printer comes from template-matching `CUBE_placement.png` against the layout (`CFG.terminal.chamber`).
+
+## Update: Data Center backdrop, grab/jump poses, idle return
+- Backdrop `assets/bg/layout.png`; cube lands on the top ring of the front DATA LINK console.
+- Poses: `databot_{launch,air,reach,lift}_{L,R}` (jump + pickup/load); run and carry sprites unchanged.
+- After `CFG.idleTimeout` (120 s) with no input the game resets and returns to the splash; any input restarts.

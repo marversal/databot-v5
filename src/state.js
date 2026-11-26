@@ -3,8 +3,8 @@ export const S = Object.freeze({
   PHASE2: 'PHASE 2: DRONE THREAT', GAMEOVER: 'GAME OVER',
 });
 const ALLOWED = {
-  [S.INITIALIZING]: [S.START], [S.START]: [S.PHASE1], [S.PHASE1]: [S.TRANSITION, S.GAMEOVER],
-  [S.TRANSITION]: [S.PHASE2, S.GAMEOVER], [S.PHASE2]: [S.GAMEOVER], [S.GAMEOVER]: [S.PHASE1, S.START],
+  [S.INITIALIZING]: [S.START], [S.START]: [S.PHASE1], [S.PHASE1]: [S.TRANSITION, S.GAMEOVER, S.START],
+  [S.TRANSITION]: [S.PHASE2, S.GAMEOVER, S.START], [S.PHASE2]: [S.GAMEOVER, S.START], [S.GAMEOVER]: [S.PHASE1, S.START],
 };
 export class StateManager {
   constructor() { this.current = S.INITIALIZING; this.time = 0; this.listeners = []; }

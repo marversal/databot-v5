@@ -12,7 +12,7 @@ import { FX } from './fx.js';
 export class World {
   constructor() {
     this.state = new StateManager(); this.player = new Player(); this.conveyor = new Conveyor(); this.terminal = new Terminal();
-    this.fx = new FX(); this.drones = []; this.dogs = []; this.notice = null; this.gameOverReason = ''; this.clock = 0; this.inP2 = false;
+    this.fx = new FX(); this.drones = []; this.dogs = []; this.notice = null; this.gameOverReason = ''; this.clock = 0; this.inP2 = false; this.idleT = 0;
     this.stats = { data: 0, cubes: 0 }; this.loadLeft = CFG.loadTime; this.surviveLeft = CFG.surviveTime;
     this.state.on((next, prev) => this.onState(next, prev));
   }
@@ -51,20 +51,26 @@ export class World {
   interact() {
     const p = this.player;
     if (this.inTerminalZone()) {
-      p.carrying--; this.terminal.deliver(p.x + p.facing * 20, p.y - 70); this.sfx('deliver');
+      p.carrying--; p.startAction('load'); this.terminal.deliver(p.x + p.facing * 20, p.y - 70); this.sfx('deliver');
       this.fx.burst(p.x, p.y - 70, '#c8ff00', 6, 100); return;
     }
     const c = this.nearGrab();
-    if (c && this.conveyor.take(c)) { p.carrying++; this.sfx('pickup'); const q = this.conveyor.pos(c.t); this.fx.burst(q.x, q.y - 20, '#39ff14', 8, 120); }
+    if (c && this.conveyor.take(c)) { p.carrying++; p.startAction('pickup'); this.sfx('pickup'); const q = this.conveyor.pos(c.t); this.fx.burst(q.x, q.y - 20, '#39ff14', 8, 120); }
+  }
+  returnToStart() {
+    this.resetSession(); Input.clear(); this.sheet = false;
+    this.state.go(S.START); this.idleT = 0;
   }
   update(dt) {
-    this.clock += dt; this.state.tick(dt); this.fx.update(dt);
+    this.clock += dt;
+    if (Input.activity() || Input.anyHeld()) this.idleT = 0; else this.idleT += dt;
+    if (this.idleT >= CFG.idleTimeout && !this.state.is(S.START, S.INITIALIZING)) { this.returnToStart(); return; } this.state.tick(dt); this.fx.update(dt);
     if (this.notice && (this.notice.life -= dt) <= 0) this.notice = null;
     if (Input.hit('mute')) Audio8.toggleMute();
     if (Input.hit('volup')) Audio8.setVolume(Audio8.volume + 0.1);
     if (Input.hit('voldown')) Audio8.setVolume(Audio8.volume - 0.1);
     const st = this.state;
-    if (st.is(S.START)) { if (Input.hit('confirm') || Input.hit('jump')) this.begin(); return; }
+    if (st.is(S.START)) { if (Input.activity()) this.begin(); return; }
     if (st.is(S.GAMEOVER)) { if (Input.hit('confirm')) this.begin(); this.player.update(dt, this); return; }
     if (st.is(S.TRANSITION)) {
       this.player.update(dt, this); this.terminal.update(dt, this);

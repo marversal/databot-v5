@@ -4,7 +4,7 @@ export class Player {
   constructor() { this.reset(); }
   reset() {
     Object.assign(this, { x: 560, y: CFG.FLOOR, vx: 0, vy: 0, facing: 1, onGround: true, carrying: 0, energy: CFG.energy,
-      stunT: 0, invT: 0, landT: 0, anim: 0, jumpBuf: 0, stepT: 0, hitFlash: 0 });
+      stunT: 0, invT: 0, landT: 0, airT: 0, act: null, anim: 0, jumpBuf: 0, stepT: 0, hitFlash: 0 });
   }
   get stunned() { return this.stunT > 0; }
   update(dt, w) {
@@ -27,6 +27,7 @@ export class Player {
     }
     this.x = Math.max(P.minX, Math.min(P.maxX, this.x + this.vx * dt));
     if (this.onGround && Math.abs(this.vx) > 120) { this.stepT -= dt; if (this.stepT <= 0) { this.stepT = 0.26; w.sfx('step'); } }
+    this.airT = this.onGround ? 0 : this.airT + dt; if (this.act && (this.act.t += dt) > this.act.dur) this.act = null;
     this.landT = Math.max(0, this.landT - dt); this.stunT = Math.max(0, this.stunT - dt);
     this.invT = Math.max(0, this.invT - dt); this.hitFlash = Math.max(0, this.hitFlash - dt);
     this.anim += dt * (Math.abs(this.vx) > P.maxSpeed * P.runThreshold ? 1.6 : 1);
@@ -41,9 +42,16 @@ export class Player {
     if (this.energy <= 0) w.gameOver('SYSTEM FAILURE - ENERGY DEPLETED');
     return true;
   }
+  startAction(type) { this.act = { type, t: 0, dur: type === 'pickup' ? 0.42 : 0.32 }; }
+  get lifting() { return this.act && this.act.type === 'pickup' && this.act.t >= 0.16; }
   sprite() {
     const side = this.facing < 0 ? 'L' : 'R';
-    if (this.stunned || !this.onGround) return (this.carrying > 0 && !this.stunned ? 'databot_carry_' : 'databot_jump_') + side;
+    if (this.stunned) return 'databot_air_' + side;
+    if (this.act && this.onGround) {
+      if (this.act.type === 'pickup') return 'databot_' + (this.act.t < 0.16 ? 'reach_' : 'lift_') + side;
+      return 'databot_reach_' + side;
+    }
+    if (!this.onGround) return this.carrying > 0 ? 'databot_carry_' + side : 'databot_' + (this.airT < 0.14 && this.vy < 0 ? 'launch_' : 'air_') + side;
     return (this.carrying > 0 ? 'databot_carry_' : 'databot_run_') + side;
   }
   bob() { return this.onGround && Math.abs(this.vx) > 30 ? Math.abs(Math.sin(this.anim * 11)) * 6 : 0; }

@@ -15,9 +15,10 @@ ok('start -> PHASE 1', (await E(`${W}.state.current`)) === 'PHASE 1: DATA LOADIN
 const x0 = await E(`${W}.player.x`); await hold('ArrowRight', 400); const x1 = await E(`${W}.player.x`); await hold('ArrowLeft', 400); const x2 = await E(`${W}.player.x`);
 ok('T02 move right/left', x1 > x0 + 40 && x2 < x1 - 40, `x ${x0.toFixed(0)} -> ${x1.toFixed(0)} -> ${x2.toFixed(0)}`);
 
-let minY = 9999; await b.key('keyDown', ' '); const t0 = Date.now(); let jumps = 0, prevAir = false;
-while (Date.now() - t0 < 1400) { const s = JSON.parse(await E(`JSON.stringify({y:${W}.player.y,g:${W}.player.onGround})`)); minY = Math.min(minY, s.y); if (!s.g && !prevAir) jumps++; prevAir = !s.g; await b.sleep(16); }
+let minY = 9999; await b.key('keyDown', ' '); const t0 = Date.now(); let jumps = 0, prevAir = false; const poses = new Set();
+while (Date.now() - t0 < 1400) { const s = JSON.parse(await E(`JSON.stringify({y:${W}.player.y,g:${W}.player.onGround})`)); minY = Math.min(minY, s.y); poses.add(await E(`${W}.player.sprite()`)); if (!s.g && !prevAir) jumps++; prevAir = !s.g; await b.sleep(16); }
 await b.key('keyUp', ' ');
+ok('jump uses launch + airborne poses', [...poses].some(p => /launch/.test(p)) && [...poses].some(p => /air/.test(p)), [...poses].join(','));
 const land = await E(`[${W}.player.y, ${W}.player.onGround]`);
 ok('T03 jump, fall, land; held key does not re-jump', minY < 552 - 60 && land[1] && land[0] === 552 && jumps === 1, `peak ${(552 - minY).toFixed(0)}px, airborne episodes ${jumps}`);
 
@@ -27,7 +28,9 @@ await hold('ArrowLeft', 2200);
 const px = await E(`${W}.player.x`); ok('walk to belt end', px < 330, `x=${px.toFixed(0)}`);
 const ready = await until(`${W}.conveyor.cubes.some(c=>c.t>0.98)`, 12000);
 await b.shot('/tmp/pt_belt.png');
-await tap('e'); const car = await E(`${W}.player.carrying`);
+await tap('e'); const poseA = await E(`${W}.player.sprite()`); await b.sleep(260); const poseB = await E(`${W}.player.sprite()`);
+ok('grab reach then lift poses used on pickup', /reach/.test(poseA) && /lift/.test(poseB), poseA + ' -> ' + poseB);
+const car = await E(`${W}.player.carrying`);
 ok('T05 collect cube with E', ready && car === 1, `carrying=${car}`);
 await hold('ArrowRight', 2400);
 ok('prompt/zone at terminal', await E(`${W}.inTerminalZone()`), `x=${(await E(`${W}.player.x`)).toFixed(0)}`);
@@ -88,5 +91,22 @@ const c0 = await E(`${W}.clock`), p0 = Date.now(); await b.sleep(2000); const c1
 ok('no duplicated loop/listeners after replay (clock rate ~1x)', Math.abs((c1 - c0) / ((Date.now() - p0) / 1000) - 1) < 0.15, `rate ${((c1 - c0) / ((Date.now() - p0) / 1000)).toFixed(2)}`);
 await E(`${W}.loadLeft=0`); await until(`${W}.state.current==='PHASE 2: DRONE THREAT'`, 6000);
 ok('2nd session: exactly 1 drone + 1 K9', (await E(`${W}.drones.length`)) === 1 && (await E(`${W}.dogs.length`)) === 1);
+
+// IDLE RETURN: 2 minutes (CFG.idleTimeout) without input -> splash + clean reset; any input starts again
+ok('idle timeout configured at 120s', (await E(`__DATABOT.CFG.idleTimeout`)) === 120);
+await E(`${W}.stats.data=999; ${W}.stats.cubes=9; ${W}.idleT = __DATABOT.CFG.idleTimeout - 1.0`);
+await b.key('keyDown', 'ArrowLeft'); await b.key('keyUp', 'ArrowLeft'); await b.sleep(1800);
+ok('input resets the idle timer (no return)', (await E(`${W}.state.current`)) !== 'START SCREEN' && (await E(`${W}.idleT`)) < 5);
+await E(`${W}.idleT = __DATABOT.CFG.idleTimeout - 1.0`); await b.sleep(1600);
+const ir = JSON.parse(await E(`JSON.stringify({s:${W}.state.current,st:${W}.stats,d:${W}.drones.length,k:${W}.dogs.length,c:${W}.conveyor.cubes.length,e:${W}.player.energy,car:${W}.player.carrying,l:${W}.loadLeft,sv:${W}.surviveLeft,p2:${W}.inP2})`));
+ok('T17 idle 120s returns to splash with clean reset', ir.s === 'START SCREEN' && ir.st.data === 0 && ir.st.cubes === 0 && ir.d === 0 && ir.k === 0 && ir.c === 0 && ir.e === 5 && ir.car === 0 && ir.l === 60 && ir.sv === 60 && !ir.p2, JSON.stringify(ir));
+await b.shot('/tmp/pt_idle_splash.png');
+await b.key('keyDown', 'q'); await b.key('keyUp', 'q');
+ok('T18 any key from splash starts a new session', await until(`${W}.state.current==='PHASE 1: DATA LOADING'`, 2000));
+await E(`${W}.idleT = __DATABOT.CFG.idleTimeout - 0.5`); await b.sleep(1200);
+ok('idle also fires from an active session again (no double start / stale timers)', (await E(`${W}.state.current`)) === 'START SCREEN');
+await b.click(1024, 660); ok('click on splash starts', await until(`${W}.state.current==='PHASE 1: DATA LOADING'`, 2000));
+const c2 = await E(`${W}.clock`), pp = Date.now(); await b.sleep(2000); const c3 = await E(`${W}.clock`);
+ok('loop rate still ~1x after idle resets', Math.abs((c3 - c2) / ((Date.now() - pp) / 1000) - 1) < 0.15);
 ok('no runtime errors during run', b.errors.length === 0, b.errors.join(' | '));
 console.log(log.join('\n')); b.close();
